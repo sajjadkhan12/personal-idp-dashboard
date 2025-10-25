@@ -28,6 +28,15 @@ const AppCard: React.FC<AppCardProps> = ({ component, onDeleteClick, user, isDel
     const getStatusBadge = () => {
         if (!component.terraformStatus) return null;
 
+        // If component is destroying, show destroying status regardless of terraformStatus
+        if (component.isDestroying) {
+            return (
+                <span className="inline-flex items-center px-2 py-0.5 bg-red-100 text-red-800 rounded-full font-semibold uppercase tracking-wide text-xs">
+                    Destroying
+                </span>
+            );
+        }
+
         const statusConfig: Record<string, { color: string; text: string; bg: string }> = {
             'pending': { color: 'text-yellow-800', text: 'Pending', bg: 'bg-yellow-100' },
             'plan_queued': { color: 'text-yellow-800', text: 'Plan Queued', bg: 'bg-yellow-100' },

@@ -49,6 +49,8 @@ export interface SoftwareComponent {
   terraformStatus?: string;
   terraformError?: string;
   isDestroying?: boolean;
+  workspaceName?: string;
+  createdAt?: string;
 }
 
 export interface SoftwareTemplate {

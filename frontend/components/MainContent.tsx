@@ -24,7 +24,6 @@ const MainContent: React.FC<MainContentProps> = ({ user }) => {
                 throw new Error('Failed to fetch components');
             }
             const data = await response.json();
-            console.log('Fetched components:', data.length, data);
             setComponents(data);
             setError(null);
         } catch (err) {
@@ -82,11 +81,9 @@ const MainContent: React.FC<MainContentProps> = ({ user }) => {
         const componentsWithRuns = components.filter(c => {
             // Only poll components that have a run ID, a status, and are not in final states
             const hasRun = c.terraformRunId && c.terraformStatus;
-            const isActive = !['applied', 'errored', 'canceled', 'discarded'].includes(c.terraformStatus);
+            const isActive = c.terraformStatus && !['applied', 'errored', 'canceled', 'discarded'].includes(c.terraformStatus);
             return hasRun && isActive;
         });
-        
-        console.log('Components to poll:', componentsWithRuns.length, componentsWithRuns.map(c => ({ name: c.name, status: c.terraformStatus, isDestroying: c.isDestroying })));
         
         if (componentsWithRuns.length === 0) return;
 
@@ -128,14 +125,8 @@ const MainContent: React.FC<MainContentProps> = ({ user }) => {
                             // If destroy completed successfully, remove from catalog
                             // Only remove if explicitly marked as destroying AND status is applied
                             if (update.status === 'applied' && c.isDestroying === true) {
-                                console.log('Removing destroyed component:', c.name);
                                 // Immediately remove from local state
                                 return null; // Mark for removal
-                            }
-                            
-                            // Log status updates for debugging
-                            if (c.terraformStatus !== update.status) {
-                                console.log(`Status update for ${c.name}: ${c.terraformStatus} -> ${update.status}`);
                             }
                             
                             return { ...c, terraformStatus: update.status, terraformError: update.error };
@@ -143,7 +134,6 @@ const MainContent: React.FC<MainContentProps> = ({ user }) => {
                         
                         // Remove null items (destroyed components)
                         const filtered = updated.filter(c => c !== null) as SoftwareComponent[];
-                        console.log('Components after update:', filtered.length);
                         return filtered;
                     });
                 }

@@ -75,10 +75,16 @@ const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({ component, on
                                 <p className="text-sm text-slate-500 mb-1">Owner</p>
                                 <p className="text-sm font-medium text-slate-800">{component.owner}</p>
                             </div>
+                            {component.workspaceName && (
+                                <div>
+                                    <p className="text-sm text-slate-500 mb-1">Workspace</p>
+                                    <p className="text-sm font-medium text-slate-800 font-mono">{component.workspaceName}</p>
+                                </div>
+                            )}
                             <div>
                                 <p className="text-sm text-slate-500 mb-1">Created</p>
                                 <p className="text-sm font-medium text-slate-800">
-                                    {new Date(component.createdAt).toLocaleDateString()}
+                                    {component.createdAt ? new Date(component.createdAt).toLocaleDateString() : 'N/A'}
                                 </p>
                             </div>
                         </div>

@@ -33,7 +33,6 @@ const AppGrid: React.FC<AppGridProps> = ({ components, onComponentDeleted, user 
       // Set up a check to clear deleting state if component disappears
       const checkInterval = setInterval(() => {
         if (!componentsRef.current.find(c => c.id === componentToDelete.id)) {
-          console.log('Component disappeared from list, clearing deleting state');
           setDeletingComponentId(null);
           clearInterval(checkInterval);
         }
@@ -55,10 +54,8 @@ const AppGrid: React.FC<AppGridProps> = ({ components, onComponentDeleted, user 
   
   // When the component being deleted is removed from the list, clear the deleting state
   useEffect(() => {
-    console.log('AppGrid useEffect triggered, components count:', components.length, 'deletingComponentId:', deletingComponentId);
     if (deletingComponentId && !components.find(c => c.id === deletingComponentId)) {
       // Component was removed from the list, clear deleting state
-      console.log('Component removed from list (useEffect), clearing deleting state');
       setDeletingComponentId(null);
       setComponentToDelete(null);
     }

@@ -30,6 +30,9 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
   const [error, setError] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<string | null>(null);
+  
+  // Get GitHub org name from environment variable or use default
+  const githubOrg = process.env.NEXT_PUBLIC_GITHUB_ORG_NAME || 'foocorp';
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +57,7 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
         name: componentName,
         description,
         owner,
-        githubUrl: `https://github.com/foocorp/${githubRepo}`,
+        githubUrl: `https://github.com/${githubOrg}/${githubRepo}`,
         templateId: template.id,
       };
     }
@@ -337,7 +340,7 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
         <div>
           <label htmlFor="githubRepo" className="block text-sm font-medium text-slate-700">GitHub Repository Name</label>
           <div className="mt-1 flex rounded-md shadow-sm">
-            <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-slate-300 bg-slate-50 text-slate-500 sm:text-sm">github.com/foocorp/</span>
+            <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-slate-300 bg-slate-50 text-slate-500 sm:text-sm">github.com/{githubOrg}/</span>
             <input type="text" id="githubRepo" value={githubRepo} onChange={(e) => setGithubRepo(e.target.value)} className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm border-slate-300" placeholder="repo-name" required />
           </div>
         </div>
