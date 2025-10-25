@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS components (
   terraform_status VARCHAR(100),
   terraform_error TEXT,
   is_destroying BOOLEAN DEFAULT FALSE,
+  workspace_name VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
