@@ -1,0 +1,5 @@
+{
+  "name": "Personal IDP Dashboard",
+  "description": "A frontend clone of an internal application dashboard, showcasing a clean and modern UI for accessing various work-related applications. Includes a login page and a filterable app grid.",
+  "requestFramePermissions": []
+}
