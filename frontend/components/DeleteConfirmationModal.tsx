@@ -1,5 +1,6 @@
 // Fix: Implement the DeleteConfirmationModal component.
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import { SoftwareComponent } from '../types';
 
 interface DeleteConfirmationModalProps {
@@ -26,7 +27,11 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({ compo
                 throw new Error(errorData.message || 'Failed to destroy component');
             }
             
-            onConfirm(); // Signal parent that destroy was initiated
+            const data = await response.json();
+            toast.success(`Destroy initiated for ${component.name}`);
+            
+            // Signal parent that destroy was initiated - this triggers immediate UI update
+            onConfirm();
             setIsLoading(false);
             // Close modal immediately after destroy is initiated
             onDestroyComplete();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import toast from 'react-hot-toast';
 import Header from './Header';
 import AppGrid from './AppGrid';
 import { User, SoftwareComponent } from '../types';
@@ -127,6 +128,24 @@ const MainContent: React.FC<MainContentProps> = ({ user }) => {
                             if (update.status === 'applied' && c.isDestroying === true) {
                                 // Immediately remove from local state
                                 return null; // Mark for removal
+                            }
+                            
+                            // Notification for status changes to applied
+                            if (update.status === 'applied' && c.terraformStatus !== 'applied') {
+                                if (c.isDestroying) {
+                                    toast.success(`${c.name} has been destroyed`);
+                                } else {
+                                    toast.success(`${c.name} is now active!`);
+                                }
+                            }
+                            
+                            // Notification for status changes to errored
+                            if (update.status === 'errored' && c.terraformStatus !== 'errored') {
+                                if (c.isDestroying) {
+                                    toast.error(`${c.name} failed to destroy`);
+                                } else {
+                                    toast.error(`${c.name} failed to provision`);
+                                }
                             }
                             
                             return { ...c, terraformStatus: update.status, terraformError: update.error };

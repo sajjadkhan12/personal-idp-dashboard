@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import toast from 'react-hot-toast';
 import { SoftwareTemplate } from '../types';
 import CreateServiceModal from './CreateServiceModal';
 
@@ -24,12 +25,14 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
   const [location, setLocation] = useState('US');
   const [storageClass, setStorageClass] = useState('STANDARD');
   const [versioningEnabled, setVersioningEnabled] = useState(false);
+  const [bucketEnvironment, setBucketEnvironment] = useState('dev'); // dev, stg, prod
 
   // State for GCP K8s Cluster
   const [clusterName, setClusterName] = useState('');
   const [k8sRegion, setK8sRegion] = useState('us-central1');
   const [nodeCount, setNodeCount] = useState('3');
   const [machineType, setMachineType] = useState('e2-medium');
+  const [k8sEnvironment, setK8sEnvironment] = useState('dev'); // dev, stg, prod
 
   const [isCreating, setIsCreating] = useState(false);
   const [creationStatus, setCreationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -57,6 +60,7 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
         location,
         storageClass,
         versioningEnabled,
+        environment: bucketEnvironment,
       };
     } else if (template.id === 'k8s-cluster') {
       endpoint = '/api/provision/gcp-k8s';
@@ -66,6 +70,7 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
         region: k8sRegion,
         nodeCount: parseInt(nodeCount),
         machineType,
+        environment: k8sEnvironment,
       };
     } else {
       body = {
@@ -93,12 +98,15 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
       // For GCP infrastructure, show quick notification and redirect to catalog
       if ((template.id === 'gcp-storage-bucket' || template.id === 'k8s-cluster') && data.runId) {
         setIsCreating(false);
+        const serviceName = template.id === 'gcp-storage-bucket' ? 'GCP Bucket' : 'K8s Cluster';
+        toast.success(`${serviceName} provisioning initiated!`);
         // Show success message and redirect to catalog
         setTimeout(() => {
           router.push('/dashboard');
         }, 1000);
       } else {
         // For other components, show success immediately
+        toast.success(`${componentName} created successfully!`);
         setCreationStatus('success');
         setIsCreating(false);
       }
@@ -143,6 +151,14 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
             <option>NEARLINE</option>
             <option>COLDLINE</option>
             <option>ARCHIVE</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="bucketEnvironment" className="block text-sm font-medium text-slate-700">Environment</label>
+          <select id="bucketEnvironment" value={bucketEnvironment} onChange={(e) => setBucketEnvironment(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            <option value="dev">Development</option>
+            <option value="stg">Staging</option>
+            <option value="prod">Production</option>
           </select>
         </div>
         <div className="flex items-center">
@@ -197,6 +213,14 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
               <option value="e2-standard-8">e2-standard-8 (8 vCPU, 32 GB)</option>
             </select>
           </div>
+        </div>
+        <div>
+          <label htmlFor="k8sEnvironment" className="block text-sm font-medium text-slate-700">Environment</label>
+          <select id="k8sEnvironment" value={k8sEnvironment} onChange={(e) => setK8sEnvironment(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            <option value="dev">Development</option>
+            <option value="stg">Staging</option>
+            <option value="prod">Production</option>
+          </select>
         </div>
       </div>
       <div className="mt-8 pt-5 border-t border-slate-200">

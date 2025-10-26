@@ -13,22 +13,28 @@ interface AppGridProps {
 const AppGrid: React.FC<AppGridProps> = ({ components, onComponentDeleted, user }) => {
   const [componentToDelete, setComponentToDelete] = useState<SoftwareComponent | null>(null);
   const [deletingComponentId, setDeletingComponentId] = useState<string | null>(null);
+  const [localComponents, setLocalComponents] = useState<SoftwareComponent[]>(components);
   const componentsRef = useRef(components);
   
-  // Keep ref updated with latest components
+  // Keep ref updated with latest components and sync local state
   useEffect(() => {
     componentsRef.current = components;
+    setLocalComponents(components);
   }, [components]);
 
-  const handleDeleteClick = (component: SoftwareComponent) => {
-    setComponentToDelete(component);
-  };
-
+  // Update component status immediately when destroy is initiated
   const handleConfirmDelete = async () => {
     if (componentToDelete) {
       setDeletingComponentId(componentToDelete.id);
-      // Don't clear deleting state yet - let the modal handle it
-      // Keep button disabled until destroy completes
+      
+      // Immediately update the local component state to show "Destroying" status
+      setLocalComponents(prevComponents =>
+        prevComponents.map(comp =>
+          comp.id === componentToDelete.id
+            ? { ...comp, isDestroying: true, terraformStatus: 'applying' as const }
+            : comp
+        )
+      );
       
       // Set up a check to clear deleting state if component disappears
       const checkInterval = setInterval(() => {
@@ -41,6 +47,10 @@ const AppGrid: React.FC<AppGridProps> = ({ components, onComponentDeleted, user 
       // Clean up after 30 seconds to prevent memory leak
       setTimeout(() => clearInterval(checkInterval), 30000);
     }
+  };
+
+  const handleDeleteClick = (component: SoftwareComponent) => {
+    setComponentToDelete(component);
   };
   
   const handleDestroyComplete = () => {
@@ -64,7 +74,7 @@ const AppGrid: React.FC<AppGridProps> = ({ components, onComponentDeleted, user 
   return (
     <>
       <div className="space-y-4">
-        {components.map(component => (
+        {localComponents.map(component => (
           <AppCard 
             key={component.id} 
             component={component} 
