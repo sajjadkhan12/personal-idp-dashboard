@@ -25,6 +25,12 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
   const [storageClass, setStorageClass] = useState('STANDARD');
   const [versioningEnabled, setVersioningEnabled] = useState(false);
 
+  // State for GCP K8s Cluster
+  const [clusterName, setClusterName] = useState('');
+  const [k8sRegion, setK8sRegion] = useState('us-central1');
+  const [nodeCount, setNodeCount] = useState('3');
+  const [machineType, setMachineType] = useState('e2-medium');
+
   const [isCreating, setIsCreating] = useState(false);
   const [creationStatus, setCreationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +38,7 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
   const [runStatus, setRunStatus] = useState<string | null>(null);
   
   // Get GitHub org name from environment variable or use default
-  const githubOrg = process.env.NEXT_PUBLIC_GITHUB_ORG_NAME || 'foocorp';
+  const githubOrg = process.env.NEXT_PUBLIC_GITHUB_ORG_NAME || 'sajjadkhan12';
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +57,15 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
         location,
         storageClass,
         versioningEnabled,
+      };
+    } else if (template.id === 'k8s-cluster') {
+      endpoint = '/api/provision/gcp-k8s';
+      body = {
+        projectId,
+        clusterName,
+        region: k8sRegion,
+        nodeCount: parseInt(nodeCount),
+        machineType,
       };
     } else {
       body = {
@@ -75,8 +90,8 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
       
       const data = await response.json();
       
-      // For GCP buckets, show quick notification and redirect to catalog
-      if (template.id === 'gcp-storage-bucket' && data.runId) {
+      // For GCP infrastructure, show quick notification and redirect to catalog
+      if ((template.id === 'gcp-storage-bucket' || template.id === 'k8s-cluster') && data.runId) {
         setIsCreating(false);
         // Show success message and redirect to catalog
         setTimeout(() => {
@@ -95,7 +110,7 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
   };
 
   useEffect(() => {
-    if (template.id !== 'gcp-storage-bucket') {
+    if (template.id !== 'gcp-storage-bucket' && template.id !== 'k8s-cluster') {
       const repoName = componentName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
       setGithubRepo(repoName);
     }
@@ -146,6 +161,55 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
     </form>
   );
 
+  const renderGcpK8sForm = () => (
+    <form onSubmit={handleCreate}>
+      <div className="space-y-6">
+        <div>
+          <label htmlFor="k8sProjectId" className="block text-sm font-medium text-slate-700">Project ID</label>
+          <input type="text" id="k8sProjectId" value={projectId} onChange={(e) => setProjectId(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g., my-gcp-project" required />
+        </div>
+        <div>
+          <label htmlFor="clusterName" className="block text-sm font-medium text-slate-700">Cluster Name</label>
+          <input type="text" id="clusterName" value={clusterName} onChange={(e) => setClusterName(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="e.g., my-production-cluster" required />
+        </div>
+        <div>
+          <label htmlFor="k8sRegion" className="block text-sm font-medium text-slate-700">Region</label>
+          <select id="k8sRegion" value={k8sRegion} onChange={(e) => setK8sRegion(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            <option value="us-central1">us-central1 (Iowa)</option>
+            <option value="us-east1">us-east1 (South Carolina)</option>
+            <option value="us-west1">us-west1 (Oregon)</option>
+            <option value="europe-west1">europe-west1 (Belgium)</option>
+            <option value="asia-east1">asia-east1 (Taiwan)</option>
+          </select>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="nodeCount" className="block text-sm font-medium text-slate-700">Node Count</label>
+            <input type="number" id="nodeCount" value={nodeCount} onChange={(e) => setNodeCount(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="3" min="1" max="100" required />
+          </div>
+          <div>
+            <label htmlFor="machineType" className="block text-sm font-medium text-slate-700">Machine Type</label>
+            <select id="machineType" value={machineType} onChange={(e) => setMachineType(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+              <option value="e2-small">e2-small (2 vCPU, 2 GB)</option>
+              <option value="e2-medium">e2-medium (2 vCPU, 4 GB)</option>
+              <option value="e2-standard-2">e2-standard-2 (2 vCPU, 8 GB)</option>
+              <option value="e2-standard-4">e2-standard-4 (4 vCPU, 16 GB)</option>
+              <option value="e2-standard-8">e2-standard-8 (8 vCPU, 32 GB)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div className="mt-8 pt-5 border-t border-slate-200">
+        <div className="flex justify-end">
+          <button type="button" onClick={onBack} className="bg-white py-2 px-4 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Cancel</button>
+          <button type="submit" disabled={isCreating} className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+            {isCreating ? 'Provisioning...' : 'Provision Cluster'}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+
   const renderServiceInfo = () => {
     const infoMap: Record<string, { title: string; description: string; requirements: string[]; benefits: string[] }> = {
       'gcp-storage-bucket': {
@@ -165,24 +229,24 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
           'Global CDN integration available'
         ]
       },
-      'python': {
-        title: 'Python Application',
-        description: 'A Python-based microservice template ready for deployment. Includes Flask/FastAPI framework setup with common middleware and configuration.',
+      'python-service': {
+        title: 'Python FastAPI Service',
+        description: 'A Python-based microservice template ready for deployment using FastAPI. Includes Docker support, API documentation, and production-ready configuration.',
         requirements: [
-          'GitHub repository for source code',
-          'Python 3.8+ runtime environment',
-          'Virtual environment setup',
-          'Required dependencies defined in requirements.txt'
+          'GitHub account with appropriate permissions',
+          'Python 3.11+ runtime environment',
+          'Docker (optional, for containerization)',
+          'FastAPI dependencies installed'
         ],
         benefits: [
-          'Fast development with established patterns',
-          'Built-in API documentation',
+          'FastAPI framework for high performance',
+          'Built-in API documentation at /docs',
           'Automatic request/response validation',
-          'Production-ready logging and monitoring',
+          'Docker support for easy deployment',
           'Easy to extend and customize'
         ]
       },
-      'nodejs': {
+      'nodejs-service': {
         title: 'Node.js Application',
         description: 'A Node.js microservice template with Express. Perfect for building RESTful APIs and lightweight backend services.',
         requirements: [
@@ -199,7 +263,7 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
           'Excellent community support'
         ]
       },
-      'go': {
+      'go-service': {
         title: 'Go Application',
         description: 'A Go microservice template with Gin framework. Ideal for high-performance services that require low latency and minimal resource usage.',
         requirements: [
@@ -216,7 +280,7 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
           'Excellent performance for concurrent workloads'
         ]
       },
-      'react': {
+      'react-webapp': {
         title: 'React Application',
         description: 'A React frontend application template with modern tooling. Includes TypeScript, Vite, and Tailwind CSS for rapid development.',
         requirements: [
@@ -233,7 +297,7 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
           'Hot module replacement for fast development'
         ]
       },
-      'aws-s3': {
+      'aws-s3-bucket': {
         title: 'AWS S3 Bucket',
         description: 'Amazon Simple Storage Service (S3) provides scalable object storage with industry-leading durability and availability.',
         requirements: [
@@ -250,21 +314,21 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
           'Multiple storage classes available'
         ]
       },
-      'kubernetes': {
-        title: 'Kubernetes Deployment',
-        description: 'A Kubernetes deployment template for containerized applications. Includes Service, Deployment, and ConfigMap definitions.',
+      'k8s-cluster': {
+        title: 'GCP Kubernetes Cluster',
+        description: 'Deploy a managed Kubernetes cluster on Google Kubernetes Engine (GKE). Get a production-ready Kubernetes cluster with automatic management and scaling.',
         requirements: [
-          'Kubernetes cluster access',
-          'Container image in registry',
-          'Appropriate RBAC permissions',
-          'kubectl configured'
+          'A valid GCP project with billing enabled',
+          'Kubernetes Engine API enabled',
+          'Appropriate IAM permissions',
+          'Terraform Cloud configured with GCP credentials'
         ],
         benefits: [
-          'Horizontal scaling',
-          'Self-healing capabilities',
-          'Rolling updates support',
-          'Service discovery built-in',
-          'Declarative configuration'
+          'Fully managed Kubernetes control plane',
+          'Automatic node upgrades and patching',
+          'Integrated with Google Cloud services',
+          'High availability and scalability',
+          'Built-in logging and monitoring'
         ]
       }
     };
@@ -372,7 +436,9 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
                   {template.icon}
                   <h1 className="ml-4 text-2xl font-bold text-slate-800">Create a new {template.name}</h1>
                 </div>
-                {template.id === 'gcp-storage-bucket' ? renderGcpBucketForm() : renderDefaultForm()}
+                {template.id === 'gcp-storage-bucket' ? renderGcpBucketForm() : 
+                 template.id === 'k8s-cluster' ? renderGcpK8sForm() : 
+                 renderDefaultForm()}
               </div>
             </div>
 
@@ -383,7 +449,7 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
           </div>
         </div>
       </div>
-      {(creationStatus !== 'idle' && template.id !== 'gcp-storage-bucket') && (
+      {(creationStatus !== 'idle' && template.id !== 'gcp-storage-bucket' && template.id !== 'k8s-cluster') && (
         <CreateServiceModal status={creationStatus} onDone={onCreationSuccess} error={error} />
       )}
     </>

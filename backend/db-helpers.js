@@ -67,17 +67,20 @@ const components = {
   async create(component) {
     const {
       id, name, description, owner, type, lifecycle, githubUrl,
+      githubRepoOwner, githubRepoName,
       terraformRunId, terraformStatus, terraformError, isDestroying
     } = component;
     
     const result = await pool.query(
       `INSERT INTO components (
         id, name, description, owner, type, lifecycle, github_url,
+        github_repo_owner, github_repo_name,
         terraform_run_id, terraform_status, terraform_error, is_destroying,
         created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING *`,
       [id, name, description, owner, type, lifecycle, githubUrl,
+       githubRepoOwner || null, githubRepoName || null,
        terraformRunId, terraformStatus, terraformError, isDestroying]
     );
     return toCamelCase(result.rows[0]);

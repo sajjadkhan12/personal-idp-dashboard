@@ -33,7 +33,11 @@ app.use(session({
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
-const GITHUB_ORG_NAME = process.env.GITHUB_ORG_NAME || 'foocorp'; // Default GitHub organization name
+const GITHUB_ORG_NAME = process.env.GITHUB_ORG_NAME || 'sajjadkhan12'; // Default GitHub organization name
+const GITHUB_PERSONAL_TOKEN = process.env.GITHUB_PERSONAL_TOKEN; // Token for creating repos and fetching templates
+const TEMPLATE_REPO_OWNER = 'sajjadkhan12';
+const TEMPLATE_REPO_NAME = 'idp-templates';
+const TEMPLATE_BRANCH = 'main';
 
 // Terraform Cloud Configuration
 const TERRAFORM_CLOUD_API_TOKEN = process.env.TERRAFORM_CLOUD_API_TOKEN;
@@ -163,18 +167,23 @@ app.get('/login/github/callback', async (req, res) => {
     res.status(500).send('Authentication failed. Please try again.');
   }
 });
-app.get('/api/me', validateToken, async (req, res) => {
-  if (req.session.userId) {
-    const user = await userDb.findById(req.session.userId);
-    if (user) {
-      // Don't send the access token to the client
-      const { access_token, ...userWithoutToken } = user;
-      res.json({ ...userWithoutToken, role: 'admin' });
-    } else {
-      res.status(404).json({ error: 'User not found' });
+app.get('/api/me', async (req, res) => {
+  try {
+    if (!req.session.userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
     }
-  } else {
-    res.status(401).json({ error: 'Not authenticated' });
+
+    const user = await userDb.findById(req.session.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Don't send the access token to the client
+    const { access_token, ...userWithoutToken } = user;
+    res.json({ ...userWithoutToken, role: 'admin' });
+  } catch (error) {
+    console.error('Error in /api/me:', error);
+    res.status(500).json({ error: 'Failed to fetch user information' });
   }
 });
 
@@ -678,6 +687,198 @@ async function getRunStatus(runId) {
   }
 }
 
+// Helper function to fetch files from GitHub repository
+async function fetchFilesFromGitHub(owner, repo, path, branch = 'main') {
+  const token = GITHUB_PERSONAL_TOKEN || process.env.GITHUB_TOKEN;
+  const authHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
+  
+  try {
+    const response = await axios.get(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`,
+      { headers: { 'Accept': 'application/vnd.github.v3+json', ...authHeaders } }
+    );
+    
+    const files = [];
+    
+    for (const item of response.data) {
+      if (item.type === 'file') {
+        // Fetch file content
+        const fileResponse = await axios.get(item.url, { headers: authHeaders });
+        files.push({
+          path: item.path,
+          content: fileResponse.data.content,
+          sha: item.sha
+        });
+      } else if (item.type === 'dir') {
+        // Recursively fetch files from subdirectory
+        const subFiles = await fetchFilesFromGitHub(owner, repo, item.path, branch);
+        files.push(...subFiles);
+      }
+    }
+    
+    return files;
+  } catch (error) {
+    console.error(`Error fetching files from GitHub: ${error.message}`);
+    throw new Error(`Failed to fetch template from GitHub: ${error.message}`);
+  }
+}
+
+// Helper function to create GitHub repository from template
+async function createGitHubRepoFromTemplate(user, repoName, description, templateSource) {
+  const personalToken = GITHUB_PERSONAL_TOKEN || process.env.GITHUB_TOKEN;
+  
+  console.log('createGitHubRepoFromTemplate called with:', { repoName, description, templateSource });
+  console.log('GITHUB_PERSONAL_TOKEN available:', !!personalToken);
+  
+  if (!personalToken) {
+    throw new Error('GITHUB_PERSONAL_TOKEN is not set in environment variables');
+  }
+
+  // Step 1: Create the repository
+  console.log(`Creating GitHub repository: ${GITHUB_ORG_NAME}/${repoName}`);
+  
+  let repoUrl;
+  
+  try {
+    // Try to create in organization
+    const createRepoResponse = await axios.post(
+      `https://api.github.com/orgs/${GITHUB_ORG_NAME}/repos`,
+      {
+        name: repoName,
+        description: description || 'Created from IDP template',
+        private: false,
+        auto_init: true // Initialize with README
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${personalToken}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      }
+    );
+    
+    repoUrl = createRepoResponse.data.html_url;
+    console.log(`Repository created: ${repoUrl}`);
+  } catch (error) {
+    console.error('Error creating organization repo, trying user repo:', error.response?.data);
+    
+    // Fallback: Create in user's account
+    try {
+      const createRepoResponse = await axios.post(
+        'https://api.github.com/user/repos',
+        {
+          name: repoName,
+          description: description || 'Created from IDP template',
+          private: false,
+          auto_init: true
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${personalToken}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
+      
+      repoUrl = createRepoResponse.data.html_url;
+      console.log(`Repository created (user account): ${repoUrl}`);
+    } catch (fallbackError) {
+      console.error('Error creating GitHub repository:', fallbackError.response?.data);
+      throw new Error('Failed to create GitHub repository');
+    }
+  }
+
+  // Step 2: Fetch template files from GitHub
+  console.log(`Fetching template files from GitHub: ${TEMPLATE_REPO_OWNER}/${TEMPLATE_REPO_NAME}/${templateSource}`);
+  
+  try {
+    const templateFiles = await fetchFilesFromGitHub(
+      TEMPLATE_REPO_OWNER, 
+      TEMPLATE_REPO_NAME, 
+      templateSource,
+      TEMPLATE_BRANCH
+    );
+    
+    console.log(`Found ${templateFiles.length} template files to copy:`, templateFiles.map(f => f.path));
+    
+    // Step 3: Upload files to the new repository
+    for (const file of templateFiles) {
+      // Skip certain files
+      if (file.path.includes('.git') || file.path.includes('node_modules')) {
+        continue;
+      }
+      
+      try {
+        // Get base64 content from GitHub's base64 encoded response
+        const base64Content = file.content;
+        
+        // Extract filename only (remove template folder prefix)
+        // file.path is like "python-service/main.py" but we want "main.py"
+        // Or if templateSource is "python-service", remove everything before the last slash
+        const pathParts = file.path.split('/');
+        const filePathForRepo = pathParts[pathParts.length - 1]; // Get just the filename
+        
+        console.log(`Processing file: ${file.path} -> ${filePathForRepo}`);
+        
+        // First try to get the file's current SHA if it exists
+        let sha = null;
+        try {
+          const getResponse = await axios.get(
+            `https://api.github.com/repos/${GITHUB_ORG_NAME}/${repoName}/contents/${filePathForRepo}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${personalToken}`,
+                'Accept': 'application/vnd.github.v3+json'
+              }
+            }
+          );
+          sha = getResponse.data.sha;
+        } catch (getError) {
+          // File doesn't exist yet, which is fine
+        }
+        
+        const payload = {
+          message: sha ? `Update ${filePathForRepo} from template` : `Add ${filePathForRepo} from template`,
+          content: base64Content,
+          committer: {
+            name: 'IDP Service',
+            email: 'noreply@idp.com'
+          }
+        };
+        
+        // Add SHA if updating existing file
+        if (sha) {
+          payload.sha = sha;
+        }
+        
+        // Update or create file in repository using the filename only
+        await axios.put(
+          `https://api.github.com/repos/${GITHUB_ORG_NAME}/${repoName}/contents/${filePathForRepo}`,
+          payload,
+          {
+            headers: {
+              'Authorization': `Bearer ${personalToken}`,
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          }
+        );
+        
+        console.log(`Successfully added/updated file: ${filePathForRepo}`);
+      } catch (fileError) {
+        console.error(`Error creating file ${file.path}:`, fileError.response?.data || fileError.message);
+        // Continue with other files even if one fails
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching template from GitHub:', error);
+    throw new Error(`Failed to fetch template from GitHub: ${error.message}`);
+  }
+
+  console.log(`Repository setup complete: ${repoUrl}`);
+  
+  return repoUrl;
+}
+
 // API Routes for Components
 app.get('/api/components', requireAuth, async (req, res) => {
   try {
@@ -693,10 +894,71 @@ app.post('/api/components', requireAuth, async (req, res) => {
   try {
     const { name, description, owner, githubUrl, templateId } = req.body;
     
+    console.log('Received component creation request:', { name, description, owner, githubUrl, templateId });
+    
     if (!name || !description || !owner) {
       return res.status(400).json({ error: 'Name, description, and owner are required' });
     }
 
+    let finalGithubUrl = githubUrl;
+    let targetRepoName = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    
+    // If this is a Python service, create the repo from template
+    if (templateId === 'python-service') {
+      try {
+        console.log('Python service detected. Checking environment...');
+        
+        // Check if GITHUB_PERSONAL_TOKEN is set
+        if (!GITHUB_PERSONAL_TOKEN) {
+          console.error('GITHUB_PERSONAL_TOKEN is not set in environment variables');
+          throw new Error('GITHUB_PERSONAL_TOKEN environment variable is required for creating repositories from templates');
+        }
+        
+        // Extract repo name from githubUrl if provided
+        if (githubUrl) {
+          // githubUrl format: https://github.com/org/repo
+          const match = githubUrl.match(/github\.com\/[^/]+\/([^/]+)/);
+          if (match) {
+            targetRepoName = match[1];
+          }
+        }
+        
+        console.log(`Creating Python service from template: ${name}, repo: ${targetRepoName}`);
+        console.log(`Template source: ${TEMPLATE_REPO_OWNER}/${TEMPLATE_REPO_NAME}/python-service`);
+        console.log(`Target organization: ${GITHUB_ORG_NAME}`);
+        
+        // Create GitHub repo from template
+        const repoUrl = await createGitHubRepoFromTemplate(
+          null, // user is not needed, we use GITHUB_PERSONAL_TOKEN
+          targetRepoName,
+          description,
+          'python-service' // Path in the template repository
+        );
+        
+        finalGithubUrl = repoUrl;
+        console.log(`Python service created successfully: ${repoUrl}`);
+      } catch (templateError) {
+        console.error('Error creating service from template:', templateError);
+        console.error('Error stack:', templateError.stack);
+        return res.status(500).json({ 
+          error: 'Failed to create service from template',
+          details: templateError.message 
+        });
+      }
+    }
+
+    // Extract repository info for storing in database
+    let githubRepoOwner = null;
+    let githubRepoName = null;
+    
+    if (finalGithubUrl) {
+      const match = finalGithubUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
+      if (match) {
+        githubRepoOwner = match[1];
+        githubRepoName = match[2];
+      }
+    }
+    
     const newComponent = {
       id: Date.now().toString(),
       name,
@@ -704,14 +966,22 @@ app.post('/api/components', requireAuth, async (req, res) => {
       owner,
       type: templateId.includes('service') ? 'Service' : templateId.includes('webapp') ? 'Website' : 'Infrastructure',
       lifecycle: 'Production',
-      githubUrl: githubUrl || `https://github.com/${GITHUB_ORG_NAME}/${name.toLowerCase().replace(/\s+/g, '-')}`
+      githubUrl: finalGithubUrl || `https://github.com/${GITHUB_ORG_NAME}/${name.toLowerCase().replace(/\s+/g, '-')}`,
+      ...(githubRepoOwner && githubRepoName ? { githubRepoOwner, githubRepoName } : {})
     };
 
+    console.log('Creating component in database:', newComponent);
     const component = await componentDb.create(newComponent);
+    console.log('Component created successfully in database');
+    
     res.status(201).json(component);
   } catch (error) {
     console.error('Error creating component:', error);
-    res.status(500).json({ error: 'Failed to create component' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to create component',
+      details: error.message 
+    });
   }
 });
 
@@ -722,6 +992,29 @@ app.delete('/api/components/:id', requireAuth, async (req, res) => {
     
     if (!component) {
       return res.status(404).json({ error: 'Component not found' });
+    }
+
+    // Check if this is a Python service and delete GitHub repo
+    if (component.type === 'Service' && component.githubRepoOwner && component.githubRepoName) {
+      try {
+        console.log(`Deleting GitHub repository: ${component.githubRepoOwner}/${component.githubRepoName}`);
+        
+        // Delete the GitHub repository
+        await axios.delete(
+          `https://api.github.com/repos/${component.githubRepoOwner}/${component.githubRepoName}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${GITHUB_PERSONAL_TOKEN}`,
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          }
+        );
+        
+        console.log(`Successfully deleted GitHub repository: ${component.githubRepoOwner}/${component.githubRepoName}`);
+      } catch (deleteError) {
+        console.error('Error deleting GitHub repository:', deleteError.response?.data || deleteError.message);
+        // Continue with database deletion even if GitHub deletion fails
+      }
     }
 
     await componentDb.delete(id);
@@ -985,10 +1278,18 @@ app.get('/api/runs/:runId/status', requireAuth, async (req, res) => {
         console.log(`Component ${componentsWithRun.id} deleted from database`);
       } else {
         // Update status normally
-        await componentDb.update(componentsWithRun.id, {
+        const updateData = {
           terraformStatus: runStatus.status,
           terraformError: runStatus.error || null
-        });
+        };
+        
+        // If destroy failed (errored), clear the isDestroying flag
+        if (runStatus.status === 'errored' && componentsWithRun.isDestroying) {
+          updateData.isDestroying = false;
+          console.log(`Destroy failed for component ${componentsWithRun.id}, clearing isDestroying flag`);
+        }
+        
+        await componentDb.update(componentsWithRun.id, updateData);
         console.log(`Updated component ${componentsWithRun.id} status in database: ${runStatus.status}`);
       }
     }
@@ -1147,7 +1448,30 @@ app.post('/api/components/:id/destroy', requireAuth, async (req, res) => {
       }
     }
 
-    // If no Terraform run, just delete from database
+    // If no Terraform run, check if it's a Python service and delete GitHub repo
+    if (component.type === 'Service' && (component.githubRepoOwner && component.githubRepoName)) {
+      try {
+        console.log(`Deleting GitHub repository: ${component.githubRepoOwner}/${component.githubRepoName}`);
+        
+        // Delete the GitHub repository
+        await axios.delete(
+          `https://api.github.com/repos/${component.githubRepoOwner}/${component.githubRepoName}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${GITHUB_PERSONAL_TOKEN}`,
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          }
+        );
+        
+        console.log(`Successfully deleted GitHub repository: ${component.githubRepoOwner}/${component.githubRepoName}`);
+      } catch (deleteError) {
+        console.error('Error deleting GitHub repository:', deleteError.response?.data || deleteError.message);
+        // Continue with database deletion even if GitHub deletion fails
+      }
+    }
+    
+    // Delete from database
     await componentDb.delete(id);
     res.json({ message: 'Component deleted successfully' });
   } catch (error) {
@@ -1176,6 +1500,16 @@ async function initializeDatabase() {
       console.log('Database schema check completed');
     }
     
+    // Add GitHub repo columns if they don't exist
+    try {
+      await pool.query('ALTER TABLE components ADD COLUMN IF NOT EXISTS github_repo_owner VARCHAR(255)');
+      await pool.query('ALTER TABLE components ADD COLUMN IF NOT EXISTS github_repo_name VARCHAR(255)');
+      console.log('GitHub repo columns added successfully');
+    } catch (error) {
+      // Columns might already exist, ignore error
+      console.log('GitHub repo columns check completed');
+    }
+    
     console.log('Database tables initialized successfully');
   } catch (error) {
     // If tables already exist, that's fine
@@ -1197,13 +1531,82 @@ app.delete('/api/components', requireAuth, async (req, res) => {
   }
 });
 
+// Debug endpoint to check template setup (defined after helper functions)
+app.get('/api/debug/template-config', requireAuth, async (req, res) => {
+  try {
+    const config = {
+      hasPersonalToken: !!GITHUB_PERSONAL_TOKEN,
+      templateRepoOwner: TEMPLATE_REPO_OWNER,
+      templateRepoName: TEMPLATE_REPO_NAME,
+      targetOrg: GITHUB_ORG_NAME,
+      personalTokenLength: GITHUB_PERSONAL_TOKEN ? GITHUB_PERSONAL_TOKEN.length : 0
+    };
+    
+    // Try to fetch files from GitHub to test connection
+    let testFetch = null;
+    try {
+      // Check if fetchFilesFromGitHub is defined
+      if (typeof fetchFilesFromGitHub === 'function') {
+        const files = await fetchFilesFromGitHub(
+          TEMPLATE_REPO_OWNER,
+          TEMPLATE_REPO_NAME,
+          'python-service',
+          TEMPLATE_BRANCH
+        );
+        testFetch = {
+          success: true,
+          fileCount: files.length,
+          files: files.map(f => f.path)
+        };
+      } else {
+        testFetch = {
+          success: false,
+          error: 'fetchFilesFromGitHub function not defined'
+        };
+      }
+    } catch (error) {
+      testFetch = {
+        success: false,
+        error: error.message,
+        stack: error.stack
+      };
+    }
+    
+    res.json({ config, testFetch });
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({ 
+      error: error.message,
+      stack: error.stack 
+    });
+  }
+});
+
 // Start server after database initialization
 async function startServer() {
-  await initializeDatabase();
-  
-  app.listen(port, () => {
-    console.log(`Server listening at http://localhost:${port}`);
-  });
+  try {
+    await initializeDatabase();
+    
+    app.listen(port, () => {
+      console.log(`Server listening at http://localhost:${port}`);
+      console.log(`TEMPLATE_REPO: ${TEMPLATE_REPO_OWNER}/${TEMPLATE_REPO_NAME}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    console.error('Error stack:', error.stack);
+    process.exit(1);
+  }
 }
+
+// Global error handler for uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 startServer();

@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS components (
   type VARCHAR(100) NOT NULL,
   lifecycle VARCHAR(100) NOT NULL,
   github_url TEXT,
+  github_repo_owner VARCHAR(255),
+  github_repo_name VARCHAR(255),
   terraform_run_id VARCHAR(255),
   terraform_status VARCHAR(100),
   terraform_error TEXT,

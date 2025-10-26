@@ -9,6 +9,24 @@ interface ComponentDetailPageProps {
 
 const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({ component, onBack }) => {
     const router = useRouter();
+    const [isRetrying, setIsRetrying] = React.useState(false);
+
+    const handleRetryDestroy = async () => {
+        setIsRetrying(true);
+        try {
+            const response = await fetch(`/api/components/${component.id}/destroy`, {
+                method: 'POST',
+            });
+            if (!response.ok) {
+                throw new Error('Failed to retry destroy');
+            }
+            // Refresh the page to show updated status
+            router.reload();
+        } catch (error) {
+            console.error('Error retrying destroy:', error);
+            setIsRetrying(false);
+        }
+    };
 
     const getStatusBadge = () => {
         if (!component.terraformStatus) return null;
@@ -99,7 +117,19 @@ const ComponentDetailPage: React.FC<ComponentDetailPageProps> = ({ component, on
 
                     <div className="bg-white rounded-lg shadow-md p-6">
                         <h2 className="text-xl font-semibold text-slate-800 mb-4">Actions</h2>
-                        <div className="flex gap-4">
+                        <div className="flex gap-4 flex-wrap">
+                            {component.terraformStatus === 'errored' && component.terraformRunId && (
+                                <button
+                                    onClick={handleRetryDestroy}
+                                    disabled={isRetrying}
+                                    className="inline-flex items-center px-6 py-3 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    {isRetrying ? 'Retrying...' : 'Try Again'}
+                                </button>
+                            )}
                             <a
                                 href={component.githubUrl}
                                 target="_blank"
