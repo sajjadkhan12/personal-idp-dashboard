@@ -3,6 +3,8 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import Sidebar from '../components/Sidebar';
 import MainContent from '../components/MainContent';
+import Overview from '../components/Overview';
+import CreateNew from '../components/CreateNew';
 import { User } from '../types';
 
 const DashboardPage: React.FC = () => {
@@ -14,6 +16,7 @@ const DashboardPage: React.FC = () => {
   
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'my-services' | 'marketplace'>('dashboard');
 
   useEffect(() => {
     const validateSession = async () => {
@@ -30,6 +33,18 @@ const DashboardPage: React.FC = () => {
     validateSession();
   }, [router]);
 
+  // Sync with URL query parameter
+  useEffect(() => {
+    const tab = router.query.tab as string;
+    if (tab === 'my-services') {
+      setActiveTab('my-services');
+    } else if (tab === 'marketplace') {
+      setActiveTab('marketplace');
+    } else if (tab === 'dashboard') {
+      setActiveTab('dashboard');
+    }
+  }, [router.query.tab]);
+
   const handleLogout = async () => {
     try {
       await axios.post('http://localhost:4000/api/logout');
@@ -39,11 +54,13 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  const handleSetView = (view: 'catalog' | 'create') => {
-    if (view === 'catalog') {
-      router.push('/dashboard');
-    } else {
-      router.push('/create');
+  const handleSetView = (view: 'dashboard' | 'my-services' | 'marketplace') => {
+    if (view === 'my-services') {
+      router.push('/dashboard?tab=my-services');
+    } else if (view === 'dashboard') {
+      router.push('/dashboard?tab=dashboard');
+    } else if (view === 'marketplace') {
+      router.push('/dashboard?tab=marketplace');
     }
   };
 
@@ -55,16 +72,29 @@ const DashboardPage: React.FC = () => {
     return null;
   }
 
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <Overview user={user} />;
+      case 'my-services':
+        return <MainContent user={user} />;
+      case 'marketplace':
+        return <CreateNew onTemplateSelect={() => {}} />;
+      default:
+        return <Overview user={user} />;
+    }
+  };
+
   return (
     <div className="flex h-screen bg-slate-100">
       <Sidebar 
         user={user} 
-        activeView="catalog"
+        activeView={activeTab}
         setView={handleSetView} 
         onLogout={handleLogout}
       />
       <main className="flex-1 flex flex-col">
-        <MainContent user={user} />
+        {renderContent()}
       </main>
     </div>
   );

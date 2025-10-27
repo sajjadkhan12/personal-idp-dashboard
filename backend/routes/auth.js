@@ -75,7 +75,7 @@ router.get('/login/github/callback', async (req, res) => {
     let user = await userDb.create(userWithToken);
     req.session.userId = user.id;
 
-    res.redirect('http://localhost:3000');
+    res.redirect('http://localhost:3000/dashboard?tab=dashboard');
   } catch (error) {
     console.error('Error in GitHub OAuth callback:', error);
     res.status(500).send('Authentication failed. Please try again.');

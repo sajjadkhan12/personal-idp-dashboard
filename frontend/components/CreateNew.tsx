@@ -52,8 +52,8 @@ const CreateNew: React.FC<CreateNewProps> = ({ onTemplateSelect }) => {
 
   return (
     <div className="flex-1 p-8 overflow-y-auto">
-      <h1 className="text-3xl font-bold text-slate-800 mb-2">Create New Software</h1>
-      <p className="text-slate-500 mb-8">Choose a template to get started with a new service or application.</p>
+      <h1 className="text-3xl font-bold text-slate-800 mb-2">Marketplace</h1>
+      <p className="text-slate-500 mb-8">Choose a template to deploy from our marketplace.</p>
       
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="relative flex-grow">

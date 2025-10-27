@@ -173,7 +173,7 @@ const MainContent: React.FC<MainContentProps> = ({ user }) => {
                 onSearch={handleSearch}
             />
             <div className="flex-1 p-8 overflow-y-auto">
-                <h1 className="text-3xl font-bold text-slate-800 mb-2">My Software</h1>
+                <h1 className="text-3xl font-bold text-slate-800 mb-2">My Services</h1>
                 <p className="text-slate-500 mb-8">All your services and applications in one place.</p>
                 
                 <div className="mb-8 flex items-center space-x-2 flex-wrap">

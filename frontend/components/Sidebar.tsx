@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import {
-  PortalIcon, CreateIcon, CatalogIcon, HelpIcon
+  PortalIcon, CreateIcon, CatalogIcon, HelpIcon, DashboardIcon
 } from '../constants';
 import { User } from '../types';
 
@@ -21,8 +21,8 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, active = false, href }) 
 
 interface SidebarProps {
     user: User;
-    activeView: 'catalog' | 'create';
-    setView: (view: 'catalog' | 'create') => void;
+    activeView: 'dashboard' | 'my-services' | 'marketplace';
+    setView: (view: 'dashboard' | 'my-services' | 'marketplace') => void;
     onLogout: () => void;
 }
 
@@ -46,16 +46,22 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setView, onLogout }
       <div className="flex-1 flex flex-col overflow-y-auto">
         <nav className="flex-1 px-4 py-4 space-y-2">
             <NavItem 
+                icon={<DashboardIcon className="w-5 h-5" />} 
+                label="Dashboard" 
+                active={activeView === 'dashboard'} 
+                href="/dashboard?tab=dashboard"
+            />
+            <NavItem 
                 icon={<CreateIcon className="w-5 h-5" />} 
-                label="Create..." 
-                active={activeView === 'create'} 
-                href="/create"
+                label="Marketplace" 
+                active={activeView === 'marketplace'} 
+                href="/dashboard?tab=marketplace"
             />
             <NavItem 
                 icon={<CatalogIcon className="w-5 h-5" />} 
-                label="Catalog" 
-                active={activeView === 'catalog'} 
-                href="/dashboard"
+                label="My Services" 
+                active={activeView === 'my-services'} 
+                href="/dashboard?tab=my-services"
             />
         </nav>
 
