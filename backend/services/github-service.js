@@ -16,9 +16,12 @@ async function fetchFilesFromGitHub(owner, repo, path, branch = 'main') {
   const token = GITHUB_PERSONAL_TOKEN || process.env.GITHUB_TOKEN;
   const authHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
   
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+  console.log(`Fetching from: ${url}`);
+  
   try {
     const response = await axios.get(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`,
+      url,
       { headers: { 'Accept': 'application/vnd.github.v3+json', ...authHeaders } }
     );
     
@@ -40,7 +43,9 @@ async function fetchFilesFromGitHub(owner, repo, path, branch = 'main') {
     
     return files;
   } catch (error) {
-    console.error(`Error fetching files from GitHub: ${error.message}`);
+    console.error(`Error fetching files from GitHub (${url}): ${error.message}`);
+    console.error(`Response status: ${error.response?.status}`);
+    console.error(`Response data:`, error.response?.data);
     throw new Error(`Failed to fetch template from GitHub: ${error.message}`);
   }
 }
@@ -55,7 +60,7 @@ async function createGitHubRepoFromTemplate(user, repoName, description, templat
     throw new Error('GITHUB_PERSONAL_TOKEN is not set in environment variables');
   }
 
-  // Step 1: Create the repository
+  // Step 1: Create the repository in organization
   let repoUrl;
   
   try {
@@ -65,64 +70,61 @@ async function createGitHubRepoFromTemplate(user, repoName, description, templat
         name: repoName,
         description: description || 'Created from IDP template',
         private: false,
-        auto_init: true
+        auto_init: false
       },
       {
         headers: {
           'Authorization': `Bearer ${personalToken}`,
-          'Accept': 'application/vnd.github.v3+json'
+          'Accept': 'application/vnd.github.v3+json',
+          'X-GitHub-Api-Version': '2022-11-28'
         }
       }
     );
     
     repoUrl = createRepoResponse.data.html_url;
+    console.log(`Repository created: ${createRepoResponse.data.full_name}`);
   } catch (error) {
-    console.error('Error creating organization repo, trying user repo:', error.response?.data);
-    
-    try {
-      const createRepoResponse = await axios.post(
-        'https://api.github.com/user/repos',
-        {
-          name: repoName,
-          description: description || 'Created from IDP template',
-          private: false,
-          auto_init: true
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${personalToken}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        }
-      );
-      
-      repoUrl = createRepoResponse.data.html_url;
-    } catch (fallbackError) {
-      console.error('Error creating GitHub repository:', fallbackError.response?.data);
-      throw new Error('Failed to create GitHub repository');
-    }
+    console.error('Error creating repository:', error.response?.data || error.message);
+    throw new Error(`Failed to create repository in organization: ${error.response?.data?.message || error.message}`);
   }
 
-  // Step 2: Fetch template files from GitHub
+  // Step 2: Fetch template files from GitHub (including .github/workflows)
   try {
-    const templateFiles = await fetchFilesFromGitHub(
+    // Fetch from the template service folder (e.g., python-service)
+    let templateFiles = await fetchFilesFromGitHub(
       TEMPLATE_REPO_OWNER, 
       TEMPLATE_REPO_NAME, 
       templateSource,
       TEMPLATE_BRANCH
     );
     
+    const allFiles = [...templateFiles];
+    
+    console.log(`Total files fetched: ${allFiles.length}`);
+    console.log(`Files to copy:`, allFiles.map(f => f.path).join(', '));
+    
     // Step 3: Upload files to the new repository
-    for (const file of templateFiles) {
-      if (file.path.includes('.git') || file.path.includes('node_modules')) {
+    for (const file of allFiles) {
+      // Skip .git directory but keep .github directory!
+      // Check for /.git/ (directory) or /.git$ (end of path) to avoid matching .github or .gitignore
+      if (file.path.match(/\/\.git\//) || file.path.match(/\/\.git$/) || file.path.includes('node_modules')) {
+        console.log(`SKIPPING: ${file.path} (matches /.git/ directory)`);
         continue;
       }
       
       try {
-        const base64Content = file.content;
+        // For files inside python-service/, remove the python-service/ prefix
+        let filePathForRepo = file.path;
+        if (file.path.startsWith(`${templateSource}/`)) {
+          filePathForRepo = file.path.substring(templateSource.length + 1);
+        }
         
-        const pathParts = file.path.split('/');
-        const filePathForRepo = pathParts[pathParts.length - 1];
+        // Skip empty paths or the template folder itself
+        if (!filePathForRepo || filePathForRepo === '' || filePathForRepo === '/') {
+          continue;
+        }
+        
+        console.log(`Copying file: ${file.path} -> ${filePathForRepo}`);
         
         let sha = null;
         try {
@@ -141,8 +143,8 @@ async function createGitHubRepoFromTemplate(user, repoName, description, templat
         }
         
         const payload = {
-          message: sha ? `Update ${filePathForRepo} from template` : `Add ${filePathForRepo} from template`,
-          content: base64Content,
+          message: sha ? `Update ${filePathForRepo}` : `Add ${filePathForRepo}`,
+          content: file.content,
           committer: {
             name: 'IDP Service',
             email: 'noreply@idp.com'

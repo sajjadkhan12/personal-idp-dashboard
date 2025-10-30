@@ -91,7 +91,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, validateSession }
     }
 
     return (
-        <div className="flex h-screen bg-slate-100">
+        <div className="flex h-screen bg-lt-base-100 dark:bg-base-100">
             <Sidebar 
                 user={user} 
                 // Map 'create-detail' to 'marketplace' for the Sidebar's activeView prop
@@ -99,8 +99,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, validateSession }
                 setView={handleSetView} 
                 onLogout={onLogout}
             />
-            <main className="flex-1 flex flex-col">
-                {renderActiveView()}
+            <main className="flex-1 flex flex-col bg-lt-base-100 dark:bg-base-100">
+                <div className="flex-1 flex flex-col overflow-hidden bg-lt-base-100 dark:bg-base-100">
+                    {renderActiveView()}
+                </div>
             </main>
         </div>
     );

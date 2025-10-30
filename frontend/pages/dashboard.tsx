@@ -5,7 +5,9 @@ import Sidebar from '../components/Sidebar';
 import MainContent from '../components/MainContent';
 import Overview from '../components/Overview';
 import CreateNew from '../components/CreateNew';
-import { User } from '../types';
+import CreateDetailPage from '../components/CreateDetailPage';
+import StickyHeader from '../components/StickyHeader';
+import { User, SoftwareTemplate } from '../types';
 
 const DashboardPage: React.FC = () => {
   const router = useRouter();
@@ -16,7 +18,8 @@ const DashboardPage: React.FC = () => {
   
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'my-services' | 'marketplace'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'my-services' | 'marketplace' | 'create-detail'>('dashboard');
+  const [selectedTemplate, setSelectedTemplate] = useState<SoftwareTemplate | null>(null);
 
   useEffect(() => {
     const validateSession = async () => {
@@ -42,8 +45,25 @@ const DashboardPage: React.FC = () => {
       setActiveTab('marketplace');
     } else if (tab === 'dashboard') {
       setActiveTab('dashboard');
+    } else {
+      setActiveTab('dashboard');
     }
   }, [router.query.tab]);
+
+  const handleTemplateSelect = (template: SoftwareTemplate) => {
+    setSelectedTemplate(template);
+    setActiveTab('create-detail');
+  };
+  
+  const handleBackToMarketplace = () => {
+    setSelectedTemplate(null);
+    setActiveTab('marketplace');
+  };
+
+  const handleCreationSuccess = () => {
+    setSelectedTemplate(null);
+    setActiveTab('my-services');
+  };
 
   const handleLogout = async () => {
     try {
@@ -62,6 +82,7 @@ const DashboardPage: React.FC = () => {
     } else if (view === 'marketplace') {
       router.push('/dashboard?tab=marketplace');
     }
+    setSelectedTemplate(null); // Clear selection when switching tabs
   };
 
   if (loading) {
@@ -79,23 +100,36 @@ const DashboardPage: React.FC = () => {
       case 'my-services':
         return <MainContent user={user} />;
       case 'marketplace':
-        return <CreateNew onTemplateSelect={() => {}} />;
+        return <CreateNew onTemplateSelect={handleTemplateSelect} />;
+      case 'create-detail':
+        if (selectedTemplate) {
+          return <CreateDetailPage 
+            template={selectedTemplate} 
+            onBack={handleBackToMarketplace}
+            onCreationSuccess={handleCreationSuccess}
+          />;
+        }
+        setActiveTab('marketplace');
+        return null;
       default:
         return <Overview user={user} />;
     }
   };
 
   return (
-    <div className="flex h-screen bg-slate-100">
+    <div className="flex h-screen bg-lt-base-100 dark:bg-base-100">
       <Sidebar 
         user={user} 
-        activeView={activeTab}
+        activeView={activeTab === 'create-detail' ? 'marketplace' : activeTab}
         setView={handleSetView} 
         onLogout={handleLogout}
       />
-      <main className="flex-1 flex flex-col">
-        {renderContent()}
-      </main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <StickyHeader user={user} onLogout={handleLogout} />
+        <main className="flex-1 overflow-y-auto bg-lt-base-100 dark:bg-base-100">
+          {renderContent()}
+        </main>
+      </div>
     </div>
   );
 };

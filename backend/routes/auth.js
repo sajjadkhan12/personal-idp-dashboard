@@ -78,6 +78,27 @@ router.get('/login/github/callback', async (req, res) => {
     res.redirect('http://localhost:3000/dashboard?tab=dashboard');
   } catch (error) {
     console.error('Error in GitHub OAuth callback:', error);
+    
+    // Provide more specific error messages
+    if (error.message && error.message.includes('role') && error.message.includes('does not exist')) {
+      console.error('Database connection error: Invalid database credentials');
+      return res.status(500).send(`
+        <html>
+          <body>
+            <h1>Database Configuration Error</h1>
+            <p>Authentication failed due to database connection issues.</p>
+            <p>Please update your database credentials in the <code>.env</code> file:</p>
+            <ul>
+              <li><code>DB_USER</code> - Your PostgreSQL username (not "your-postgres-username")</li>
+              <li><code>DB_PASSWORD</code> - Your PostgreSQL password (not "your-postgres-password")</li>
+            </ul>
+            <p>After updating, restart the server and try again.</p>
+            <p><a href="/login/github">Try again</a></p>
+          </body>
+        </html>
+      `);
+    }
+    
     res.status(500).send('Authentication failed. Please try again.');
   }
 });
@@ -85,13 +106,13 @@ router.get('/login/github/callback', async (req, res) => {
 // Get current user info
 router.get('/api/me', requireAuth, async (req, res) => {
   try {
-    const user = await userDb.findById(req.session.userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const { access_token, ...userWithoutToken } = user;
-    res.json({ ...userWithoutToken, role: 'admin' });
+  const user = await userDb.findById(req.session.userId);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  
+  const { access_token, accessToken, ...userWithoutToken } = user;
+  res.json({ ...userWithoutToken, role: 'admin' });
   } catch (error) {
     console.error('Error in /api/me:', error);
     res.status(500).json({ error: 'Failed to fetch user information' });

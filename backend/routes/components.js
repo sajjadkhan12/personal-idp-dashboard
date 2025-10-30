@@ -82,6 +82,7 @@ router.post('/components', requireAuth, async (req, res) => {
       owner,
       type: templateId.includes('service') ? 'Service' : templateId.includes('webapp') ? 'Website' : 'Infrastructure',
       lifecycle: 'Production',
+      terraformStatus: 'applied',
       githubUrl: finalGithubUrl || `https://github.com/${GITHUB_ORG_NAME}/${name.toLowerCase().replace(/\s+/g, '-')}`,
       ...(githubRepoOwner && githubRepoName ? { githubRepoOwner, githubRepoName } : {})
     };

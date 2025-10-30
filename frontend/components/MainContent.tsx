@@ -172,9 +172,9 @@ const MainContent: React.FC<MainContentProps> = ({ user }) => {
                 setSearchQuery={setSearchQuery}
                 onSearch={handleSearch}
             />
-            <div className="flex-1 p-8 overflow-y-auto">
-                <h1 className="text-3xl font-bold text-slate-800 mb-2">My Services</h1>
-                <p className="text-slate-500 mb-8">All your services and applications in one place.</p>
+            <div className="flex-1 p-8 overflow-y-auto bg-lt-base-100 dark:bg-base-100">
+                <h1 className="text-3xl font-bold text-lt-content-strong dark:text-white mb-2">My Services</h1>
+                <p className="text-lt-content-subtle dark:text-gray-400 mb-8">All your services and applications in one place.</p>
                 
                 <div className="mb-8 flex items-center space-x-2 flex-wrap">
                     {types.map(type => (
@@ -183,8 +183,8 @@ const MainContent: React.FC<MainContentProps> = ({ user }) => {
                             onClick={() => setActiveFilter(type)}
                             className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors duration-200 mb-2 ${
                                 activeFilter === type
-                                ? 'bg-blue-600 text-white shadow'
-                                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'
+                                ? 'bg-lt-brand-primary dark:bg-brand-primary text-white shadow'
+                                : 'bg-lt-base-200 dark:bg-base-200 text-lt-content-strong dark:text-gray-300 hover:bg-lt-base-300 dark:hover:bg-base-300 border border-lt-base-300 dark:border-base-300'
                             }`}
                         >
                             {/* Capitalize first letter */}
@@ -193,7 +193,7 @@ const MainContent: React.FC<MainContentProps> = ({ user }) => {
                     ))}
                 </div>
 
-                {isLoading && <p>Loading components...</p>}
+                {isLoading && <p className="text-lt-content dark:text-gray-400">Loading components...</p>}
                 {error && <p className="text-red-500">Error: {error}</p>}
                 {!isLoading && !error && (
                     <AppGrid components={filteredComponents} onComponentDeleted={fetchComponents} user={user}/>

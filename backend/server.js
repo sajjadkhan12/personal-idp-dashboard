@@ -7,6 +7,31 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('./database');
 
+// Set up file logging
+const logStream = fs.createWriteStream(path.join(__dirname, 'server.log'), { flags: 'a' });
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+// Override console methods to log to file
+console.log = (...args) => {
+  const message = args.join(' ');
+  const timestamp = new Date().toISOString();
+  logStream.write(`[${timestamp}] [LOG] ${message}\n`);
+};
+
+console.error = (...args) => {
+  const message = args.join(' ');
+  const timestamp = new Date().toISOString();
+  logStream.write(`[${timestamp}] [ERROR] ${message}\n`);
+};
+
+console.warn = (...args) => {
+  const message = args.join(' ');
+  const timestamp = new Date().toISOString();
+  logStream.write(`[${timestamp}] [WARN] ${message}\n`);
+};
+
 const config = require('./config');
 const authRoutes = require('./routes/auth');
 const componentRoutes = require('./routes/components');
@@ -35,6 +60,34 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
 }));
+
+// Test database connection
+async function testDatabaseConnection() {
+  try {
+    // Check if credentials are still placeholders
+    if (process.env.DB_USER === 'your-postgres-username' || 
+        process.env.DB_PASSWORD === 'your-postgres-password') {
+      console.warn('⚠️  WARNING: Database credentials appear to be placeholders.');
+      console.warn('   Please update DB_USER and DB_PASSWORD in your .env file.');
+      console.warn('   Authentication will fail until database is properly configured.');
+      return false;
+    }
+    
+    // Test connection
+    await pool.query('SELECT NOW()');
+    console.log('✅ Database connection successful');
+    return true;
+  } catch (error) {
+    if (error.message && error.message.includes('role') && error.message.includes('does not exist')) {
+      console.error('❌ Database connection failed: Invalid database credentials');
+      console.error('   Please update DB_USER and DB_PASSWORD in your .env file with your actual PostgreSQL credentials.');
+    } else {
+      console.error('❌ Database connection failed:', error.message);
+      console.error('   Please verify your database is running and credentials are correct.');
+    }
+    return false;
+  }
+}
 
 // Initialize database
 async function initializeDatabase() {
@@ -73,6 +126,12 @@ app.use('/api', statusRoutes);
 // Start server
 async function startServer() {
   try {
+    // Test database connection first
+    const dbConnected = await testDatabaseConnection();
+    if (!dbConnected) {
+      console.warn('⚠️  Starting server with database connection issues - some features may not work');
+    }
+    
     await initializeDatabase();
     
     app.listen(port, () => {

@@ -41,7 +41,7 @@ const CreateDetailPage: React.FC<CreateDetailPageProps> = ({ template, onBack, o
   const [runStatus, setRunStatus] = useState<string | null>(null);
   
   // Get GitHub org name from environment variable or use default
-  const githubOrg = process.env.NEXT_PUBLIC_GITHUB_ORG_NAME || 'sajjadkhan12';
+  const githubOrg = process.env.NEXT_PUBLIC_GITHUB_ORG_NAME || 'sajjadkhan-academy';
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

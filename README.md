@@ -102,7 +102,7 @@ Generate a complete Python microservice with FastAPI framework.
 - `.gitignore` and `.dockerignore`
 - Comprehensive README
 
-**Template Location:** `https://github.com/sajjadkhan12/idp-templates/tree/main/python-service`
+**Template Location:** `https://github.com/sajjadkhan-academy/idp-templates/tree/main/python-service`
 
 **Output:**
 - New GitHub repository with complete service code
@@ -221,16 +221,16 @@ GITHUB_CLIENT_SECRET=your_client_secret
 
 # GitHub API
 GITHUB_PERSONAL_TOKEN=ghp_your_token
-GITHUB_ORG_NAME=sajjadkhan12
+GITHUB_ORG_NAME=sajjadkhan-academy
 
 # Terraform Cloud
 TERRAFORM_CLOUD_API_TOKEN=your_tf_cloud_token
 TERRAFORM_CLOUD_ORG_NAME=your_org_name
-TERRAFORM_CLOUD_REPO=sajjadkhan12/terraform-for-idp
+TERRAFORM_CLOUD_REPO=sajjadkhan-academy/terraform-for-idp
 TERRAFORM_CLOUD_BRANCH=main
 
 # Template Repository
-TEMPLATE_REPO_OWNER=sajjadkhan12
+TEMPLATE_REPO_OWNER=sajjadkhan-academy
 TEMPLATE_REPO_NAME=idp-templates
 TEMPLATE_BRANCH=main
 
@@ -262,7 +262,7 @@ cd frontend
 npm install
 
 # Create .env.local for GitHub org name
-echo "NEXT_PUBLIC_GITHUB_ORG_NAME=sajjadkhan12" > .env.local
+echo "NEXT_PUBLIC_GITHUB_ORG_NAME=sajjadkhan-academy" > .env.local
 
 # Start development server
 npm run dev
@@ -277,7 +277,7 @@ npm run dev
 
 ### Terraform Repository Setup
 
-Your Terraform configurations should be in: `https://github.com/sajjadkhan12/terraform-for-idp`
+Your Terraform configurations should be in: `https://github.com/sajjadkhan-academy/terraform-for-idp`
 
 **Required Directory Structure:**
 ```
@@ -297,7 +297,7 @@ terraform-for-idp/
 
 ### Template Repository Setup
 
-Your service templates should be in: `https://github.com/sajjadkhan12/idp-templates`
+Your service templates should be in: `https://github.com/sajjadkhan-academy/idp-templates`
 
 **Required Directory Structure:**
 ```

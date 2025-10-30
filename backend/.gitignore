@@ -45,3 +45,5 @@ build/
 config.local.js
 secrets.json
 
+server.log
+server.log
